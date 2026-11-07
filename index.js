@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
@@ -6,11 +6,12 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers // Required to assign roles when clicked
   ] 
 });
 
-// Define all Moderator and Owner commands including the real-time bot status dashboard
+// Define all Moderator, Owner, and Verification commands
 const commands = [
   // 1. Kick Command
   new SlashCommandBuilder()
@@ -130,7 +131,13 @@ const commands = [
   // 9. Real-Time Bot Operational Health & Live Dashboard
   new SlashCommandBuilder()
     .setName('botstatus')
-    .setDescription('Open a live real-time dashboard tracking bot health, uptime, and ping')
+    .setDescription('Open a live real-time dashboard tracking bot health, uptime, and ping'),
+
+  // 10. Setup Verification Panel Command (Owner/Moderator Only)
+  new SlashCommandBuilder()
+    .setName('verify')
+    .setDescription('Post the interactive verification panel (Owner/Moderator only)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 ].map(command => command.toJSON());
 
 // Register commands via REST API
@@ -164,8 +171,36 @@ function hasAllowedRole(member) {
   );
 }
 
-// Command Handler
+// Assigned Member Role ID
+const VERIFIED_ROLE_ID = '1568576471440556115';
+
+// Interaction Handler (Slash commands & Buttons)
 client.on('interactionCreate', async interaction => {
+  
+  // Handle Button Clicks (Verification button can be clicked by regular members)
+  if (interaction.isButton()) {
+    if (interaction.customId === 'verify_button') {
+      const member = interaction.member;
+
+      if (!member) {
+        return await interaction.reply({ content: '❌ Could not verify your membership.', ephemeral: true });
+      }
+
+      // Check if user already has the role
+      if (member.roles.cache.has(VERIFIED_ROLE_ID)) {
+        return await interaction.reply({ content: '⚠️ You are already verified!', ephemeral: true });
+      }
+
+      try {
+        await member.roles.add(VERIFIED_ROLE_ID);
+        return await interaction.reply({ content: '✅ **Success!** You have been verified and given access to the server.', ephemeral: true });
+      } catch (error) {
+        console.error('Failed to assign verified role:', error);
+        return await interaction.reply({ content: '❌ Failed to assign the role. Please contact a server admin.', ephemeral: true });
+      }
+    }
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName, member, guild, client } = interaction;
@@ -174,13 +209,11 @@ client.on('interactionCreate', async interaction => {
   if (commandName === 'botstatus') {
     await interaction.deferReply();
 
-    // Function to generate fresh status stats
     const generateStatusEmbed = () => {
       const totalSeconds = Math.floor(client.uptime / 1000);
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
-      
       const memoryUsage = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
 
       return new EmbedBuilder()
@@ -196,14 +229,12 @@ client.on('interactionCreate', async interaction => {
         .setTimestamp();
     };
 
-    // Send initial response
     await interaction.editReply({ embeds: [generateStatusEmbed()] });
 
-    // Set up a real-time interval to edit and refresh stats every 5 seconds for 2 minutes
     let counter = 0;
     const interval = setInterval(async () => {
       counter++;
-      if (counter > 24) { // Stops after 2 minutes (24 * 5 seconds) to prevent infinite API loops
+      if (counter > 24) { 
         clearInterval(interval);
         return;
       }
@@ -211,14 +242,14 @@ client.on('interactionCreate', async interaction => {
       try {
         await interaction.editReply({ embeds: [generateStatusEmbed()] });
       } catch (err) {
-        clearInterval(interval); // Stop if message or interaction expires
+        clearInterval(interval);
       }
     }, 5000);
 
     return;
   }
 
-  // Security Gate: Check if user has Owner or Moderator role for all remaining staff commands
+  // Security Gate: Check if user has Owner or Moderator role for all staff/management commands (/verify included here)
   if (!hasAllowedRole(member)) {
     return await interaction.reply({
       content: '❌ You must have the **Owner** or **Moderator** role to use this command.',
@@ -226,7 +257,27 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // 2. Status Presence Command Logic (Owner & Moderator Only)
+  // 2. Setup Verification Panel (/verify) - Owner & Moderator Only
+  if (commandName === 'verify') {
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('🛡️ Server Verification')
+      .setDescription('Click the **Verify** button below to gain access to the rest of the server!');
+
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('verify_button')
+          .setLabel('Verify')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('✅')
+      );
+
+    await interaction.channel.send({ embeds: [embed], components: [row] });
+    return await interaction.reply({ content: '✅ Verification panel posted successfully!', ephemeral: true });
+  }
+
+  // 3. Status Presence Command Logic (Owner & Moderator Only)
   if (commandName === 'status') {
     const presenceMode = interaction.options.getString('presence');
     const activityText = interaction.options.getString('activity');
@@ -250,7 +301,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // 3. Announce Command Logic
+  // 4. Announce Command Logic
   if (commandName === 'announce') {
     const announcementText = interaction.options.getString('message');
     const attachment = interaction.options.getAttachment('attachment');
@@ -269,12 +320,11 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: `Announced by ${interaction.user.tag}` })
             .setTimestamp();
 
-          const messageOptions = { embeds: [embed] };
           if (attachment) {
             embed.setImage(attachment.url);
           }
 
-          await channel.send(messageOptions);
+          await channel.send({ embeds: [embed] });
           sentCount++;
         } catch (err) {
           console.error(`Failed to send announcement to channel ${channel.name}:`, err);
@@ -287,7 +337,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // 4. Userinfo Command Logic
+  // 5. Userinfo Command Logic
   if (commandName === 'userinfo') {
     const userId = interaction.options.getString('userid').trim();
     await interaction.deferReply({ ephemeral: true });
@@ -325,7 +375,7 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // 5. Kick Command Logic
+  // 6. Kick Command Logic
   if (commandName === 'kick') {
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -343,7 +393,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `✅ Kicked **${targetUser.tag}** | Reason: ${reason}` });
   }
 
-  // 6. Ban Command Logic
+  // 7. Ban Command Logic
   else if (commandName === 'ban') {
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -357,7 +407,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `⛔ Banned **${targetUser.tag}** | Reason: ${reason}` });
   }
 
-  // 7. Clear Command Logic
+  // 8. Clear Command Logic
   else if (commandName === 'clear') {
     const amount = interaction.options.getInteger('amount');
 
@@ -377,7 +427,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `🧹 Deleted **${deleted.size}** messages.`, ephemeral: true });
   }
 
-  // 8. Timeout Command Logic
+  // 9. Timeout Command Logic
   else if (commandName === 'timeout') {
     const targetUser = interaction.options.getUser('target');
     const minutes = interaction.options.getInteger('minutes');
@@ -402,7 +452,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // 9. DM Command Logic
+  // 10. DM Command Logic
   else if (commandName === 'dm') {
     const targetUser = interaction.options.getUser('target');
     const messageContent = interaction.options.getString('message');

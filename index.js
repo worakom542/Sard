@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, ActivityType } = require('discord.js');
-const { token, clientId } = require('./config.json');
+const token = process.env.TOKEN;
+const clientId = process.env.CLIENT_ID;
 
 const client = new Client({ 
   intents: [

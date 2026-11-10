@@ -331,8 +331,8 @@ client.on('interactionCreate', async interaction => {
       .setDescription('*"I\'m Phoenix, one of Krampus\'s... judge, of sorts. Standing around\'s a little tiring — mind if I sit?"*')
       .setImage(randomImage)
       .addFields(
-        { name: 'Faction', value: 'Krampus Compliance Authority', inline: true },
-        { name: 'Attribute / Specialty', value: 'Fire / Anomaly (S-Rank)', inline: true }
+        { name: 'Faction', value: 'Krampus Compliance Authority', inline: true }, //
+        { name: 'Attribute / Specialty', value: 'Fire / Anomaly', inline: true } //
       )
       .setFooter({ text: `Requested by ${user.tag}` })
       .setTimestamp();

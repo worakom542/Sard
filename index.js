@@ -11,7 +11,7 @@ const client = new Client({
   ] 
 });
 
-// Define all Moderator, Owner, and Verification commands
+// Define all Moderator, Owner, Verification, and Community commands
 const commands = [
   // 1. Kick Command
   new SlashCommandBuilder()
@@ -137,7 +137,31 @@ const commands = [
   new SlashCommandBuilder()
     .setName('verify')
     .setDescription('Post the interactive verification panel (Owner/Moderator only)')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  // 11. Recommend / Suggestion Command (Available to Everyone)
+  new SlashCommandBuilder()
+    .setName('recommend')
+    .setDescription('Submit a recommendation or idea for the server')
+    .addStringOption(option =>
+      option.setName('idea')
+        .setDescription('Your suggestion or recommendation')
+        .setRequired(true)),
+
+  // 12. Poll Command (Owner/Moderator Only)
+  new SlashCommandBuilder()
+    .setName('poll')
+    .setDescription('Create a community poll (Owner/Moderator only)')
+    .addStringOption(option =>
+      option.setName('question')
+        .setDescription('The poll question')
+        .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+  // 13. Server Info Command (Available to Everyone)
+  new SlashCommandBuilder()
+    .setName('serverinfo')
+    .setDescription('View server statistics and details')
 ].map(command => command.toJSON());
 
 // Register commands via REST API
@@ -203,7 +227,7 @@ client.on('interactionCreate', async interaction => {
 
   if (!interaction.isChatInputCommand()) return;
 
-  const { commandName, member, guild, client } = interaction;
+  const { commandName, member, guild, client, user } = interaction;
 
   // 1. Real-Time Bot Health Dashboard (/botstatus) - Available to everyone
   if (commandName === 'botstatus') {
@@ -249,7 +273,45 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // Security Gate: Check if user has Owner or Moderator role for all staff/management commands (/verify included here)
+  // 2. Recommend / Suggestion Command (Available to Everyone)
+  if (commandName === 'recommend') {
+    const ideaText = interaction.options.getString('idea');
+
+    const embed = new EmbedBuilder()
+      .setColor(0xFEE75C)
+      .setTitle('💡 New Server Recommendation')
+      .setDescription(ideaText)
+      .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL({ dynamic: true }) })
+      .setTimestamp();
+
+    const suggestionMessage = await interaction.channel.send({ embeds: [embed] });
+    await suggestionMessage.react('👍');
+    await suggestionMessage.react('👎');
+
+    return await interaction.reply({ content: '✅ Your recommendation has been submitted successfully!', ephemeral: true });
+  }
+
+  // 3. Server Info Command (Available to Everyone)
+  if (commandName === 'serverinfo') {
+    const owner = await guild.fetchOwner();
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(`📊 Server Info: ${guild.name}`)
+      .setThumbnail(guild.iconURL({ dynamic: true }))
+      .addFields(
+        { name: 'Server Owner', value: owner.user.tag, inline: true },
+        { name: 'Total Members', value: `${guild.memberCount}`, inline: true },
+        { name: 'Server Boosts', value: `${guild.premiumSubscriptionCount || 0} Boosts`, inline: true },
+        { name: 'Created On', value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:F>`, inline: false }
+      )
+      .setFooter({ text: `Requested by ${user.tag}` })
+      .setTimestamp();
+
+    return await interaction.reply({ embeds: [embed] });
+  }
+
+  // Security Gate: Check if user has Owner or Moderator role for all staff/management commands below
   if (!hasAllowedRole(member)) {
     return await interaction.reply({
       content: '❌ You must have the **Owner** or **Moderator** role to use this command.',
@@ -257,7 +319,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // 2. Setup Verification Panel (/verify) - Owner & Moderator Only
+  // 4. Setup Verification Panel (/verify) - Owner & Moderator Only
   if (commandName === 'verify') {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -277,7 +339,26 @@ client.on('interactionCreate', async interaction => {
     return await interaction.reply({ content: '✅ Verification panel posted successfully!', ephemeral: true });
   }
 
-  // 3. Status Presence Command Logic (Owner & Moderator Only)
+  // 5. Poll Command (Owner & Moderator Only)
+  if (commandName === 'poll') {
+    const questionText = interaction.options.getString('question');
+
+    const embed = new EmbedBuilder()
+      .setColor(0xEB459E)
+      .setTitle('📊 Community Poll')
+      .setDescription(questionText)
+      .setFooter({ text: `Poll created by ${user.tag}` })
+      .setTimestamp();
+
+    const pollMessage = await interaction.channel.send({ embeds: [embed] });
+    await pollMessage.react('👍');
+    await pollMessage.react('👎');
+    await pollMessage.react('🤷');
+
+    return await interaction.reply({ content: '✅ Poll created successfully!', ephemeral: true });
+  }
+
+  // 6. Status Presence Command Logic (Owner & Moderator Only)
   if (commandName === 'status') {
     const presenceMode = interaction.options.getString('presence');
     const activityText = interaction.options.getString('activity');
@@ -301,7 +382,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // 4. Announce Command Logic
+  // 7. Announce Command Logic
   if (commandName === 'announce') {
     const announcementText = interaction.options.getString('message');
     const attachment = interaction.options.getAttachment('attachment');
@@ -337,7 +418,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // 5. Userinfo Command Logic
+  // 8. Userinfo Command Logic
   if (commandName === 'userinfo') {
     const userId = interaction.options.getString('userid').trim();
     await interaction.deferReply({ ephemeral: true });
@@ -375,7 +456,7 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // 6. Kick Command Logic
+  // 9. Kick Command Logic
   if (commandName === 'kick') {
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -393,7 +474,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `✅ Kicked **${targetUser.tag}** | Reason: ${reason}` });
   }
 
-  // 7. Ban Command Logic
+  // 10. Ban Command Logic
   else if (commandName === 'ban') {
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -407,7 +488,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `⛔ Banned **${targetUser.tag}** | Reason: ${reason}` });
   }
 
-  // 8. Clear Command Logic
+  // 11. Clear Command Logic
   else if (commandName === 'clear') {
     const amount = interaction.options.getInteger('amount');
 
@@ -427,7 +508,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `🧹 Deleted **${deleted.size}** messages.`, ephemeral: true });
   }
 
-  // 9. Timeout Command Logic
+  // 12. Timeout Command Logic
   else if (commandName === 'timeout') {
     const targetUser = interaction.options.getUser('target');
     const minutes = interaction.options.getInteger('minutes');
@@ -452,7 +533,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // 10. DM Command Logic
+  // 13. DM Command Logic
   else if (commandName === 'dm') {
     const targetUser = interaction.options.getUser('target');
     const messageContent = interaction.options.getString('message');

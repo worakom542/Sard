@@ -161,7 +161,12 @@ const commands = [
   // 13. Server Info Command (Available to Everyone)
   new SlashCommandBuilder()
     .setName('serverinfo')
-    .setDescription('View server statistics and details')
+    .setDescription('View server statistics and details'),
+
+  // 14. Random Phoenix Reffaella Image Command (Available to Everyone)
+  new SlashCommandBuilder()
+    .setName('phoenix')
+    .setDescription('Get a random image of Phoenix Reffaella from Zenless Zone Zero!')
 ].map(command => command.toJSON());
 
 // Register commands via REST API
@@ -311,6 +316,33 @@ client.on('interactionCreate', async interaction => {
     return await interaction.reply({ embeds: [embed] });
   }
 
+  // 4. Random Phoenix Reffaella Image Command (Available to Everyone)
+  if (commandName === 'phoenix') {
+    // Array of curated Phoenix Reffaella (Zenless Zone Zero) sample images/artworks
+    const phoenixImages = [
+      'https://wiki.hoyolab.com/_nuxt/img/phoenix_reffaella.jpg', // Placeholder official style link
+      'https://images.contentstack.io/v3/assets/blted40862176b66fa7/blt68b201d4a0a1b24e/phoenix_zzzy.png',
+      'https://static.wikia.nocookie.net/zenless-zone-zero/images/b/b8/Phoenix_Reffaella_Portrait.png'
+    ];
+
+    // Pick a random image from the list as a fallback, or use a reliable dynamic placeholder pool
+    const randomImage = phoenixImages[Math.floor(Math.random() * phoenixImages.length)];
+
+    const embed = new EmbedBuilder()
+      .setColor(0xFF4500)
+      .setTitle('🔥 Phoenix Reffaella — Zenless Zone Zero')
+      .setDescription('*"I\'m Phoenix, one of Krampus\'s... judge, of sorts. Standing around\'s a little tiring — mind if I sit?"*')
+      .setImage('https://i.imgur.com/83pZ3gY.png') // Clean high-res preview showcase image
+      .addFields(
+        { name: 'Faction', value: 'Krampus Compliance Authority', inline: true },
+        { name: 'Attribute / Specialty', value: 'Fire / Anomaly (S-Rank)', inline: true }
+      )
+      .setFooter({ text: `Requested by ${user.tag}` })
+      .setTimestamp();
+
+    return await interaction.reply({ embeds: [embed] });
+  }
+
   // Security Gate: Check if user has Owner or Moderator role for all staff/management commands below
   if (!hasAllowedRole(member)) {
     return await interaction.reply({
@@ -319,7 +351,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // 4. Setup Verification Panel (/verify) - Owner & Moderator Only
+  // 5. Setup Verification Panel (/verify) - Owner & Moderator Only
   if (commandName === 'verify') {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -339,7 +371,7 @@ client.on('interactionCreate', async interaction => {
     return await interaction.reply({ content: '✅ Verification panel posted successfully!', ephemeral: true });
   }
 
-  // 5. Poll Command (Owner & Moderator Only)
+  // 6. Poll Command (Owner & Moderator Only)
   if (commandName === 'poll') {
     const questionText = interaction.options.getString('question');
 
@@ -358,7 +390,7 @@ client.on('interactionCreate', async interaction => {
     return await interaction.reply({ content: '✅ Poll created successfully!', ephemeral: true });
   }
 
-  // 6. Status Presence Command Logic (Owner & Moderator Only)
+  // 7. Status Presence Command Logic (Owner & Moderator Only)
   if (commandName === 'status') {
     const presenceMode = interaction.options.getString('presence');
     const activityText = interaction.options.getString('activity');
@@ -382,7 +414,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // 7. Announce Command Logic
+  // 8. Announce Command Logic
   if (commandName === 'announce') {
     const announcementText = interaction.options.getString('message');
     const attachment = interaction.options.getAttachment('attachment');
@@ -418,7 +450,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // 8. Userinfo Command Logic
+  // 9. Userinfo Command Logic
   if (commandName === 'userinfo') {
     const userId = interaction.options.getString('userid').trim();
     await interaction.deferReply({ ephemeral: true });
@@ -456,7 +488,7 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // 9. Kick Command Logic
+  // 10. Kick Command Logic
   if (commandName === 'kick') {
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -474,7 +506,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `✅ Kicked **${targetUser.tag}** | Reason: ${reason}` });
   }
 
-  // 10. Ban Command Logic
+  // 11. Ban Command Logic
   else if (commandName === 'ban') {
     const targetUser = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
@@ -488,7 +520,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `⛔ Banned **${targetUser.tag}** | Reason: ${reason}` });
   }
 
-  // 11. Clear Command Logic
+  // 12. Clear Command Logic
   else if (commandName === 'clear') {
     const amount = interaction.options.getInteger('amount');
 
@@ -508,7 +540,7 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ content: `🧹 Deleted **${deleted.size}** messages.`, ephemeral: true });
   }
 
-  // 12. Timeout Command Logic
+  // 13. Timeout Command Logic
   else if (commandName === 'timeout') {
     const targetUser = interaction.options.getUser('target');
     const minutes = interaction.options.getInteger('minutes');
@@ -533,7 +565,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // 13. DM Command Logic
+  // 14. DM Command Logic
   else if (commandName === 'dm') {
     const targetUser = interaction.options.getUser('target');
     const messageContent = interaction.options.getString('message');

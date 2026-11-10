@@ -318,21 +318,18 @@ client.on('interactionCreate', async interaction => {
 
   // 4. Random Phoenix Reffaella Image Command (Available to Everyone)
   if (commandName === 'phoenix') {
-    // Array of curated Phoenix Reffaella (Zenless Zone Zero) sample images/artworks
     const phoenixImages = [
-      'https://wiki.hoyolab.com/_nuxt/img/phoenix_reffaella.jpg', // Placeholder official style link
       'https://images.contentstack.io/v3/assets/blted40862176b66fa7/blt68b201d4a0a1b24e/phoenix_zzzy.png',
       'https://static.wikia.nocookie.net/zenless-zone-zero/images/b/b8/Phoenix_Reffaella_Portrait.png'
     ];
 
-    // Pick a random image from the list as a fallback, or use a reliable dynamic placeholder pool
     const randomImage = phoenixImages[Math.floor(Math.random() * phoenixImages.length)];
 
     const embed = new EmbedBuilder()
       .setColor(0xFF4500)
       .setTitle('🔥 Phoenix Reffaella — Zenless Zone Zero')
       .setDescription('*"I\'m Phoenix, one of Krampus\'s... judge, of sorts. Standing around\'s a little tiring — mind if I sit?"*')
-      .setImage('https://i.imgur.com/83pZ3gY.png') // Clean high-res preview showcase image
+      .setImage(randomImage)
       .addFields(
         { name: 'Faction', value: 'Krampus Compliance Authority', inline: true },
         { name: 'Attribute / Specialty', value: 'Fire / Anomaly (S-Rank)', inline: true }
